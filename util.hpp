@@ -53,9 +53,6 @@
 #include <opencv/cvaux.h>
 #include <opencv/highgui.h>
 #include <regex.h>
-#include "pod.hpp"
-#include "echo.hpp"
-#include "rgb.hpp"
 
 #define JOIN24(R,G,B) R << 16 | G << 8 | B
 #define JOIN32(R,G,B,A) A << 24 | R << 16 | G << 8 | B
@@ -418,8 +415,6 @@ struct point
     int y;
 };
 
-typedef pod<point> point_t;
-
 struct fundamental
 {
     char symbol[NAME_SIZE];//0
@@ -495,8 +490,6 @@ struct rectangle
     short height;
 };
 
-typedef pod<rectangle> rectangle_t;
-
 struct message
 {
     int domain;
@@ -524,8 +517,6 @@ extern const image* EMAIMAGE;
 extern const image* FLOIMAGE;
 extern const image* ZOEIMAGE;
 extern const char*  EXCHANGE;
-
-typedef pod<image> image_t;
 
 struct imageptr
 {
@@ -1434,12 +1425,6 @@ inline bool ispowerof2(int i)
     return i > 0 && (i & (i - 1)) == 0;
 }
 
-template <typename point_t> inline
-double slope(point_t pt1, point_t pt2)
-{
-    return (pt1.y - pt2.y) / (double)(pt2.x - pt1.x);
-}
-
 inline void shuffle(int* card, int cardsn)
 {
     for(int n = 0; n < cardsn; n++)
@@ -1527,6 +1512,884 @@ inline shrink_rectangles(rectangle* rect, int size, int portrait, int landscape)
         rect->y += portrait;
         rect->width -= landscape * 2;
         rect->height -= portrait * 2;
+    }
+}
+
+inline unsigned int get_interpolated_color(unsigned int color1, unsigned int color2)
+{
+    unsigned int out = (((color1 & 0xFEFEFEFE) >> 1) +
+                        ((color2 & 0xFEFEFEFE) >> 1));
+    return out;
+}
+
+//int color = 0xAARRGGBB;
+inline void get_rgba(unsigned int color, unsigned char* clr, unsigned char alpha)
+{
+    unsigned char red   = (unsigned char)((color & 0x00FF0000) >> 16);
+    unsigned char green = (unsigned char)((color & 0x0000FF00) >> 8);
+    unsigned char blue  = (unsigned char)((color & 0x000000FF));
+    clr[0] = red;
+    clr[1] = green;
+    clr[2] = blue;
+    clr[3] = alpha;
+}
+
+inline unsigned char GetRValue(unsigned int color)
+{
+    return (unsigned char)((color >> 16) & 0xFF);
+}
+
+inline unsigned char GetGValue(unsigned int color)
+{
+    return (unsigned char)((color >> 8) & 0xFF);
+}
+
+inline unsigned char GetBValue(unsigned int color)
+{
+    return (unsigned char)(color & 0xFF);
+}
+
+inline unsigned int RGB(unsigned char r, unsigned char g, unsigned char b)
+{
+    unsigned int color = ((unsigned int)r << 16) | ((unsigned int)g << 8) | b;
+    return color;
+}
+
+// This is a subfunction of HSLtoRGB
+inline void HSLtoRGB_Subfunction(unsigned int& c, const float& temp1, const float& temp2, const float& temp3)
+{
+    if((temp3 * 6) < 1)
+        c = (unsigned int)((temp2 + (temp1 - temp2) * 6 * temp3) * 100);
+    else if((temp3 * 2) < 1)
+        c = (unsigned int)(temp1 * 100);
+    else if((temp3 * 3) < 2)
+        c = (unsigned int)((temp2 + (temp1 - temp2) * (.66666 - temp3) * 6) * 100);
+    else
+        c = (unsigned int)(temp2 * 100);
+    return;
+}
+
+// This function extracts the hue, saturation, and luminance from "color"
+// and places these values in h, s, and l respectively.
+inline void RGBtoHSL(unsigned int color, unsigned int& h, unsigned int& s, unsigned int& l)
+{
+    unsigned int r = (unsigned int)GetRValue(color);
+    unsigned int g = (unsigned int)GetGValue(color);
+    unsigned int b = (unsigned int)GetBValue(color);
+
+    float r_percent = ((float)r) / 255;
+    float g_percent = ((float)g) / 255;
+    float b_percent = ((float)b) / 255;
+
+    float max_color = 0;
+    if((r_percent >= g_percent) && (r_percent >= b_percent))
+    {
+        max_color = r_percent;
+    }
+    if((g_percent >= r_percent) && (g_percent >= b_percent))
+        max_color = g_percent;
+    if((b_percent >= r_percent) && (b_percent >= g_percent))
+        max_color = b_percent;
+
+    float min_color = 0;
+    if((r_percent <= g_percent) && (r_percent <= b_percent))
+        min_color = r_percent;
+    if((g_percent <= r_percent) && (g_percent <= b_percent))
+        min_color = g_percent;
+    if((b_percent <= r_percent) && (b_percent <= g_percent))
+        min_color = b_percent;
+
+    float L = 0;
+    float S = 0;
+    float H = 0;
+
+    L = (max_color + min_color) / 2;
+
+    if(max_color == min_color)
+    {
+        S = 0;
+        H = 0;
+    }
+    else
+    {
+        if(L < .50)
+        {
+            S = (max_color - min_color) / (max_color + min_color);
+        }
+        else
+        {
+            S = (max_color - min_color) / (2 - max_color - min_color);
+        }
+        if(max_color == r_percent)
+        {
+            H = (g_percent - b_percent) / (max_color - min_color);
+        }
+        if(max_color == g_percent)
+        {
+            H = 2 + (b_percent - r_percent) / (max_color - min_color);
+        }
+        if(max_color == b_percent)
+        {
+            H = 4 + (r_percent - g_percent) / (max_color - min_color);
+        }
+    }
+    s = (unsigned int)(S * 100);
+    l = (unsigned int)(L * 100);
+    H = H * 60;
+    if(H < 0)
+        H += 360;
+    h = (unsigned int)H;
+}
+
+// This function converts the "color" object to the equivalent RGB values of
+// the hue, saturation, and luminance passed as h, s, and l respectively
+inline unsigned int HSLtoRGB(const unsigned int& h, const unsigned int& s, const unsigned int& l)
+{
+    unsigned int r = 0;
+    unsigned int g = 0;
+    unsigned int b = 0;
+
+    float L = ((float)l) / 100;
+    float S = ((float)s) / 100;
+    float H = ((float)h) / 360;
+
+    if(s == 0)
+    {
+        r = l;
+        g = l;
+        b = l;
+    }
+    else
+    {
+        float temp1 = 0;
+        if(L < .50)
+        {
+            temp1 = L * (1 + S);
+        }
+        else
+        {
+            temp1 = L + S - (L * S);
+        }
+
+        float temp2 = 2 * L - temp1;
+
+        float temp3 = 0;
+        for(int i = 0 ; i < 3 ; i++)
+        {
+            switch(i)
+            {
+            case 0: // red
+            {
+                temp3 = H + .33333f;
+                if(temp3 > 1)
+                    temp3 -= 1;
+                HSLtoRGB_Subfunction(r, temp1, temp2, temp3);
+                break;
+            }
+            case 1: // green
+            {
+                temp3 = H;
+                HSLtoRGB_Subfunction(g, temp1, temp2, temp3);
+                break;
+            }
+            case 2: // blue
+            {
+                temp3 = H - .33333f;
+                if(temp3 < 0)
+                    temp3 += 1;
+                HSLtoRGB_Subfunction(b, temp1, temp2, temp3);
+                break;
+            }
+            default:
+            {
+
+            }
+            }
+        }
+    }
+    r = (unsigned int)((((float)r) / 100) * 255);
+    g = (unsigned int)((((float)g) / 100) * 255);
+    b = (unsigned int)((((float)b) / 100) * 255);
+    return RGB(r, g, b);
+}
+
+inline unsigned int hsl_to_rgb(unsigned int h, unsigned int s, unsigned int l)
+{
+    return HSLtoRGB(h, s, l);
+}
+
+inline unsigned int lighten(unsigned int color, unsigned int amount)
+{
+    unsigned int h, s, l;
+
+    RGBtoHSL(color, h, s, l);
+    l += amount;
+    if(l > 100)
+    {
+        l = 100;
+    }
+    return HSLtoRGB(h, s, l);
+}
+
+inline unsigned int darken(unsigned int color, unsigned int amount)
+{
+    unsigned int h, s, l;
+
+    RGBtoHSL(color, h, s, l);
+    if(amount >= l)
+    {
+        l = 0;
+    }
+    else
+    {
+        l -= amount;
+    }
+    return HSLtoRGB(h, s, l);
+}
+
+inline unsigned int* get_lighter_colors(const unsigned int* const clr, int size, int val)
+{
+    unsigned int* out = (unsigned int*) malloc(sizeof(unsigned int) * size);
+    for(int n = 0; n < size; ++n)
+        out[n] = lighten(clr[n], val);
+    return out;
+}
+
+inline unsigned int* get_darker_colors(const unsigned int* const clr, int size, int val)
+{
+    unsigned int* out = (unsigned int*) malloc(sizeof(unsigned int) * size);
+    for(int n = 0; n < size; ++n)
+        out[n] = darken(clr[n], val);
+    return out;
+}
+
+inline unsigned int* make_palatte(int gian, int hue, int sat, int lum)
+{
+    unsigned int* out = (unsigned int*) calloc(sizeof(int), gian);
+
+    for(int n = 0; n < gian; ++n)
+        out[n] = hsl_to_rgb(hue + n, sat, lum);
+    return out;
+}
+
+template <typename type_t>
+struct pod
+{
+    type_t operator()()
+    {
+        type_t type;
+        memset(&type, 0, sizeof(type_t));
+        return type;
+    }
+
+    template <typename T1>
+    type_t operator()(T1 t1)
+    {
+        type_t type = {t1};
+        return type;
+    }
+
+    template <typename T1, typename T2>
+    type_t operator()(T1 t1, T2 t2)
+    {
+        type_t type = {t1, t2};
+        return type;
+    }
+
+    template <typename T1, typename T2, typename T3>
+    type_t operator()(T1 t1, T2 t2, T3 t3)
+    {
+        type_t type = {t1, t2, t3};
+        return type;
+    }
+
+    template <typename T1, typename T2, typename T3, typename T4>
+    type_t operator()(T1 t1, T2 t2, T3 t3, T4 t4)
+    {
+        type_t type = {t1, t2, t3, t4};
+        return type;
+    }
+
+    template <typename T1, typename T2, typename T3, typename T4, typename T5>
+    type_t operator()(T1 t1, T2 t2, T3 t3, T4 t4, T5 t5)
+    {
+        type_t type = {t1, t2, t3, t4, t5};
+        return type;
+    }
+
+    template <typename T1, typename T2, typename T3, typename T4, typename T5, typename T6>
+    type_t operator()(T1 t1, T2 t2, T3 t3, T4 t4, T5 t5, T6 t6)
+    {
+        type_t type = {t1, t2, t3, t4, t5, t6};
+        return type;
+    }
+
+    template <typename T1, typename T2, typename T3, typename T4, typename T5, typename T6, typename T7>
+    type_t operator()(T1 t1, T2 t2, T3 t3, T4 t4, T5 t5, T6 t6, T7 t7)
+    {
+        type_t type = {t1, t2, t3, t4, t5, t6, t7};
+        return type;
+    }
+
+    template <typename T1, typename T2, typename T3, typename T4, typename T5, typename T6, typename T7, typename T8>
+    type_t operator()(T1 t1, T2 t2, T3 t3, T4 t4, T5 t5, T6 t6, T7 t7, T8 t8)
+    {
+        type_t type = {t1, t2, t3, t4, t5, t6, t7, t8};
+        return type;
+    }
+
+    template <typename T1, typename T2, typename T3, typename T4, typename T5, typename T6, typename T7, typename T8, typename T9>
+    type_t operator()(T1 t1, T2 t2, T3 t3, T4 t4, T5 t5, T6 t6, T7 t7, T8 t8, T9 t9)
+    {
+        type_t type = {t1, t2, t3, t4, t5, t6, t7, t8, t9};
+        return type;
+    }
+};
+
+struct echo
+{
+    void operator()(const float* a, int size)
+    {
+        for(int n = 0; n < size; ++n)
+            printf("%15d%15.5f\n", n, a[n]);
+    }
+
+    void operator()(const float* a, const float* b, int size)
+    {
+        for(int n = 0; n < size; ++n)
+            printf("%15d%15.5f%15.5f\n", n, a[n], b[n]);
+    }
+
+    void operator()(const float* a, const float* b, const float* c, int size)
+    {
+        for(int n = 0; n < size; ++n)
+            printf("%15d%15.5f%15.5f%15.5f\n", n, a[n], b[n], c[n]);
+    }
+
+    void operator()(const float* a, const float* b, const float* c, const float* d, int size)
+    {
+        for(int n = 0; n < size; ++n)
+            printf("%15d%15.5f%15.5f%15.5f%15.5f\n", n, a[n], b[n], c[n], d[n]);
+    }
+
+    void operator()(const float* a, const float* b, const float* c, const float* d, const float* e, int size)
+    {
+        for(int n = 0; n < size; ++n)
+            printf("%15d%15.5f%15.5f%15.5f%15.5f%15.5f\n", n, a[n], b[n], c[n], d[n], e[n]);
+    }
+
+    void operator()(const float* a, const float* b, const float* c, const float* d,
+                    const float* e, const float* f, int size)
+    {
+        for(int n = 0; n < size; ++n)
+            printf("%15d%15.5f%15.5f%15.5f%15.5f%15.5f%15.5f\n", n, a[n], b[n], c[n], d[n], e[n], f[n]);
+    }
+
+    void operator()(const float* a, const float* b, const float* c, const float* d,
+                    const float* e, const float* f, const float* g, int size)
+    {
+        for(int n = 0; n < size; ++n)
+            printf("%15d%15.5f%15.5f%15.5f%15.5f%15.5f%15.5f%15.5f\n", n, a[n], b[n], c[n], d[n], e[n], f[n], g[n]);
+    }
+
+    void operator()(const float* a, const float* b, const float* c, const float* d,
+                    const float* e, const float* f, const float* g, const float* h, int size)
+    {
+        for(int n = 0; n < size; ++n)
+            printf("%15d%15.5f%15.5f%15.5f%15.5f%15.5f%15.5f%15.5f%15.5f\n",
+                   n, a[n], b[n], c[n], d[n], e[n], f[n], g[n], h[n]);
+    }
+};
+
+inline int echo_messages(node<message*>* head, FILE* file = stderr)
+{
+    int messagesn = 0;
+    char** messages = NULL;
+
+    node<message*>* hsave = head;
+    while(head)
+    {
+        node<message*>* next = head->next;
+        int n = 0;
+        for(; n < messagesn; ++n)
+            if(!strcmp(head->data->message, messages[n]))
+                break;
+
+        if(n == messagesn)
+        {
+            messages = (char**)realloc(messages, (messagesn + 1) * sizeof(char*));
+            int isize = strlen(head->data->message) + 1;
+            messages[messagesn] = (char*)malloc(isize * sizeof(char));
+            strcpy(messages[messagesn], head->data->message);
+            fprintf(file, "%s %s,%s,%d\n", messages[messagesn], head->data->file,
+                    head->data->function, head->data->line);
+            messagesn++;
+        }
+
+        head = next;
+    }
+
+    int n = 0;
+    for(; n < messagesn; ++n)
+        free(messages[n]);
+    free(messages);
+    return messagesn;
+}
+
+inline rectangle* uniform_fitted_rectangle::get(int cols, int rows, int width, int height, int margin)
+{
+    if(width < 0 || height < 0)
+        return 0;
+
+    int size = cols * rows;
+    int n = 0;
+    int y = 0;
+    int iheight = height + margin;
+    int rwidth = width + margin;
+    int ww = (int)(rwidth / (float) cols);
+    int hh = (int)(iheight / (float) rows);
+
+    rectangle* rect = (rectangle*) calloc(size, sizeof(rectangle));
+    rectangle* hrect = rect;
+    int hadj = height - hh * rows + 1;
+    int wadj = width - ww * cols + 1;
+
+    for(int row = 0; row < rows; ++row)
+    {
+        int h = hh - margin;
+        int x = 0;
+        int wadja = wadj;
+        for(int col = 0; col < cols; ++col, ++n, ++rect)
+        {
+            int w = ww - margin;
+            rect->x = x;
+            rect->y = y;
+            rect->width = w;
+            rect->height = h;
+            int m = wadja-- > 0 ? 1 : 0;
+            x += w + margin + m;
+        }
+
+        int m = hadj-- > 0 ? 1 : 0;
+        y += h + margin + m;
+    }
+
+    return hrect;
+}
+
+inline rectangle* uniform_rectangle::get(int cols, int rows, int width, int height, int margin)
+{
+    if(width < 0 || height < 0)
+        return 0;
+
+    int size = cols * rows;
+    int n = 0;
+    int y = 0;
+    int iheight = height + margin;
+    int rwidth = width + margin;
+    int ww = (int)(rwidth / (float) cols);
+    int hh = (int)(iheight / (float) rows);
+    rectangle* rect = (rectangle*) calloc(size, sizeof(rectangle));
+
+    rectangle* hrect = rect;
+    for(int row = 0; row < rows; ++row)
+    {
+        int h = hh - margin;
+        int x = 0;
+        for(int col = 0; col < cols; ++col, ++n, ++rect)
+        {
+            int w = ww - margin;
+            rect->x = x;
+            rect->y = y;
+            rect->width = w;
+            rect->height = h;
+            x += w + margin;
+        }
+
+        y += h + margin;
+    }
+
+    return hrect;
+}
+
+inline rectangle* fixed_rectangle::get(int cols, int rows,
+                                int width, int height, int margin)
+{
+    if(width < 0 || height < 0)
+        return 0;
+
+    int x = 0;
+    int y = 0;
+    int outn = 0;
+    int size = cols * rows;
+    rectangle* out = (rectangle*) calloc(size, sizeof(rectangle));
+
+    for(int n = 0; n < rows; ++n)
+    {
+        for(int m = 0; m < cols; ++m)
+        {
+            int w = width / cols;
+            if(x + w > width)
+                w = width - x;
+
+            int h = height / rows;
+            if(y + h > height)
+                h = height - y;
+
+            rectangle r = {x, y, w, h};
+            memcpy(&out[outn++], &r, sizeof(rectangle));
+            x += width / cols;
+        }
+
+        y += height / rows;
+        x = 0;
+    }
+
+    return out;
+}
+
+inline rectangle* fitted_rectangle::get(int cols, int rows, int width, int height, int margin)
+{
+    if(width < 0 || height < 0)
+        return 0;
+
+    int size = cols * rows;
+    int n = 0;
+    int y = 0;
+    int iheight = height + margin;
+    int rwidth = width + margin;
+    int ww = (int)(rwidth / (float) cols);
+    int hh = (int)(iheight / (float) rows);
+    int xadj = rwidth - (cols * ww);
+    int yadj = iheight - (rows * hh);
+    rectangle* rect = (rectangle*) malloc(size * sizeof(rectangle));
+
+    rectangle* hrect = rect;
+    for(int row = 0; row < rows; ++row)
+    {
+        int h = hh - margin;
+        if(yadj-- >= 1)
+            h++;
+        int x = 0;
+        int xadj_ = xadj;
+        for(int col = 0; col < cols; ++col, ++n, ++rect)
+        {
+            int w = ww - margin;
+            if(xadj-- >= 1)
+                w++;
+            rect->x = x;
+            rect->y = y;
+            rect->width = w;
+            rect->height = h;
+            x += w + margin;
+        }
+        xadj = xadj_;
+        y += h + margin;
+    }
+
+    return hrect;
+}
+
+inline void command_line(int args, char** argv,
+                  option* options, int optionsn, void* user_data, node<message*>** errors)
+{
+    int n = 1;
+    for(; n < (int) args; ++n)
+    {
+        int m = 0;
+        for(; m < optionsn; ++m)
+        {
+            option* o = &options[m];
+            char shortname[3];
+            shortname[0] = '-';
+            shortname[1] = o->short_name;
+            shortname[2] = '\0';
+            char longname[OPTION_NAME + 2];
+            strcpy(longname, "--");
+            strcat(longname, o->name);
+            if(strcmp(argv[n], shortname) && strcmp(argv[n], longname))
+                continue;
+
+            if(o->arg == option_type::system)
+            {
+                option_user a = {options, optionsn, user_data};
+                (* (option_callback2) o->arg_data)(
+                    o->name, argv[n + 1], (void*)&a, errors);
+                n++;
+                break;
+            }
+            else if(o->arg == option_type::system &&
+                    o->flags & OPTION_FLAG_NO_ARG)
+            {
+                option_user a = {options, optionsn, user_data};
+                (* (option_callback2) o->arg_data)(
+                    o->name, NULL, (void*)&a, errors);
+                break;
+            }
+            else if(o->arg == option_type::decimal && (n != (args - 1)))
+            {
+                *(float**)o->arg_data = (float*)malloc(sizeof(float));
+                float val = atof(argv[n + 1]);
+                memcpy(*(float**)o->arg_data, &val, sizeof(float));
+                n++;
+                break;
+            }
+            else if(o->arg == option_type::string && (n != (args - 1)))
+            {
+                *(char**)o->arg_data = (char*)malloc(sizeof(char) * strlen(argv[n + 1]));
+                strcpy(*(char**)o->arg_data, argv[n + 1]);
+                n++;
+                break;
+            }
+            else if(o->arg == option_type::flag)
+            {
+                *(int**)o->arg_data = (int*)malloc(sizeof(int));
+                break;
+            }
+            else if(o->arg == option_type::integer && (n != (args - 1)))
+            {
+                *(int**)o->arg_data = (int*)malloc(sizeof(int));
+                int val = atoi(argv[n + 1]);
+                memcpy(*(int**)o->arg_data, &val, sizeof(int));
+                n++;
+                break;
+            }
+            else if(o->arg == option_type::callback &&
+                    o->flags & OPTION_FLAG_NO_ARG)
+            {
+                (* (option_callback2) o->arg_data)(
+                    o->name, NULL, user_data, errors);
+                break;
+            }
+            else if(o->arg == option_type::callback &&
+                    o->flags & OPTION_FLAG_DUAL_ARG &&
+                    (n != (args - 2)))
+            {
+                (* (option_callback2) o->arg_data)(
+                    argv[n + 1], argv[n + 2], user_data, errors);
+
+                n += 2;
+                break;
+            }
+            else if(o->arg == option_type::callback &&
+                    o->flags & OPTION_FLAG_TRIP_ARG &&
+                    (n != (args - 3)))
+            {
+                (* (option_callback3) o->arg_data)(
+                    argv[n + 1], argv[n + 2], argv[n + 3], user_data, errors);
+                n += 3;
+                break;
+            }
+            else if(n != (args - 1))
+            {
+                (* (option_callback2) o->arg_data)(
+                    o->name, argv[n + 1], user_data, errors);
+                n++;
+                break;
+            }
+        }
+        if(is_fatal(errors))
+            return false;
+
+        if(m == optionsn)
+        {
+            push_message(errors, 0, 0, 1, __FILE__, __FUNCTION__, __LINE__, "invalid option - %s", argv[n]);
+            return false;
+        }
+    }
+}
+
+inline void echo_version(const char* a, const char* b, void*, node<message*>**)
+{
+    fprintf(stdout, "%s %d.%d.%d\n", APPLICATION, MAJORVERSION, MINORVERSION, PATCHVERSION);
+    fprintf(stdout, "%s\n", WEBSITE);
+    fprintf(stdout, "%s\n", COPYRIGHT);
+    fprintf(stdout, "%s\n", SUMMARY);
+    fprintf(stdout, "%s\n", USAGE);
+    fprintf(stdout, "%s\n", EXAMPLE);
+    exit(EXIT_SUCCESS);
+}
+
+inline void echo_help(const char*, const char*, void* user_data, node<message*>** errors)
+{
+    const options_t* o = (options_t*) user_data;
+    fprintf(stdout, "%s %d.%d.%d\n", APPLICATION, MAJORVERSION, MINORVERSION, PATCHVERSION);
+    fprintf(stdout, "%s\n", WEBSITE);
+    fprintf(stdout, "%s\n", COPYRIGHT);
+    fprintf(stdout, "%s\n", SUMMARY);
+    fprintf(stdout, "%s\n", USAGE);
+    fprintf(stdout, "%s\n\n", EXAMPLE);
+    fprintf(stdout, "Options:\n");
+    for(int m = 0; m < o->size; ++m)
+    {
+        const option* option = &o->data[m];
+        if(option->flags & OPTION_FLAG_HIDDEN)
+            continue;
+
+        int args = 1;
+        if(option->flags & OPTION_FLAG_NO_ARG)
+            args = 0;
+        else if(option->flags & OPTION_FLAG_DUAL_ARG)
+            args = 2;
+
+        fprintf(stdout, "%30s %2c  %s. %s (%d)\n", option->name,
+                option->short_name ? option->short_name : ' ',
+                option->description, option->arg_description, args);
+    }
+
+    exit(EXIT_SUCCESS);
+}
+
+inline void abort(const char* fmt, ...)
+{
+    va_list args;
+    va_start(args, fmt);
+    vfprintf(stderr, fmt, args);
+    exit(1);
+}
+
+inline unsigned char* load_binary(const char* path, int* size, node<message*>** errors)
+{
+    int fd = open(path, O_RDONLY);
+    if(fd == -1)
+    {
+        push_message(errors, 0, 0, 1, __FILE__, __FUNCTION__, __LINE__,
+                     "error: %s, %s", path, strerror(errno));
+        return 0;
+    }
+
+    struct stat file_info;
+    if(fstat(fd, &file_info) == -1)
+    {
+        push_message(errors, 0, 0, 1, __FILE__, __FUNCTION__, __LINE__,
+                     "error: %s, %s", path, strerror(errno));
+        close(fd);
+        return 0;
+    }
+
+    if(!S_ISREG(file_info.st_mode))
+    {
+        push_message(errors, 0, 0, 1, __FILE__, __FUNCTION__, __LINE__,
+                     "Invalid path: %s", path);
+        close(fd);
+        return 0;
+    }
+
+    unsigned char* buffer = (unsigned char*)malloc(file_info.st_size + 1);
+    if(!buffer)
+    {
+        push_message(errors, 0, 0, 1, __FILE__, __FUNCTION__, __LINE__, "bad memory: %s", path);
+        close(fd);
+        return 0;
+    }
+
+    read(fd, buffer, file_info.st_size);
+    close(fd);
+
+    if(size)
+        *size = file_info.st_size;
+
+    return buffer;
+}
+
+inline char* base64_encode(const unsigned char* data, int input_length, int* output_length)
+{
+    static char encoding_table[] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
+                                    'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P',
+                                    'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X',
+                                    'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f',
+                                    'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n',
+                                    'o', 'p', 'q', 'r', 's', 't', 'u', 'v',
+                                    'w', 'x', 'y', 'z', '0', '1', '2', '3',
+                                    '4', '5', '6', '7', '8', '9', '+', '/'
+                                   };
+
+    static int mod_table[] = {0, 2, 1};
+
+
+    *output_length = (size_t)(4.0 * ceil((double) input_length / 3.0));
+    char* encoded_data = malloc(*output_length);
+
+    for(int i = 0, j = 0; i < input_length;)
+    {
+        uint32_t octet_a = i < input_length ? data[i++] : 0;
+        uint32_t octet_b = i < input_length ? data[i++] : 0;
+        uint32_t octet_c = i < input_length ? data[i++] : 0;
+
+        uint32_t triple = (octet_a << 0x10) + (octet_b << 0x08) + octet_c;
+
+        encoded_data[j++] = encoding_table[(triple >> 3 * 6) & 0x3F];
+        encoded_data[j++] = encoding_table[(triple >> 2 * 6) & 0x3F];
+        encoded_data[j++] = encoding_table[(triple >> 1 * 6) & 0x3F];
+        encoded_data[j++] = encoding_table[(triple >> 0 * 6) & 0x3F];
+    }
+
+    for(int i = 0; i < mod_table[input_length % 3]; i++)
+        encoded_data[*output_length - 1 - i] = '=';
+    return encoded_data;
+}
+
+inline void echo_base64_encode(const char*, const char* path, void* app_, node<message*>** errors)
+{
+    int size;
+    unsigned char* buffer = load_binary(path, &size, errors);
+    if(*errors)
+    {
+        push_message(errors, 0, 0, 1, __FILE__, __FUNCTION__, __LINE__, "bad path: %s", path);
+        return;
+    }
+
+    int len;
+    char* str = base64_encode(buffer, size, &len);
+
+    char ch[LARGE_TEXT_BUFFER];
+    strncpy(ch, str, len);
+    ch[len] = '\0';
+    fprintf(stdout, "imageObj.src = \"data:image/png;base64,%s\"\n", ch);
+
+    free(str);
+    free(buffer);
+}
+
+inline void echo_bin_octal(const char*, const char* path, void* app_, node<message*>** errors)
+{
+    int size;
+    unsigned char* buffer = load_binary(path, &size, errors);
+    if(*errors)
+    {
+        push_message(errors, 0, 0, 1, __FILE__, __FUNCTION__, __LINE__, "bad path: %s", path);
+        return;
+    }
+
+    fprintf(stdout, "%s\n", path);
+    for(unsigned long n = 0; n < size; ++n)
+        fprintf(stdout, "\\%o", buffer[n]);
+    fprintf(stdout, "\n\n");
+    free(buffer);
+    return 0;
+}
+
+inline int compare_color(const void* pkey, const void* pelem)
+{
+    const char* key = (char*) pkey;
+    const color* clr = (color*) pelem;
+    return strcmp(key, clr->name);
+}
+
+inline int sort_colors(const void* x, const void* y)
+{
+    const color* xx = (color*) x;
+    const color* yy = (color*) y;
+    return strcmp(xx->name, yy->name);
+}
+
+inline void convertToUpperCase(char* str)
+{
+    int ch, i;
+    for(i = 0; i < strlen(str); i++)
+    {
+        ch = toupper(str[i]);
+        str[i] = ch;
     }
 }
 
