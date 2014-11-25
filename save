@@ -1,0 +1,319 @@
+/*
+    sprintf(path, "/srv/http/Fundamentals/%s.txt", exchange);
+    fundamental* fundamentals = get_fundamental(path, fsize, errors);
+    if(!fundamentals)
+    {
+        push_message(errors, 0, 0, 1, __FILE__, __FUNCTION__, __LINE__, "bad path - %s", path);
+        return;
+    }
+
+    int tsize;
+    sprintf(path, "/srv/http/Technicals/%s.txt", exchange);
+    technical* technicals = get_technical(path, tsize, errors);
+    if(!technicals)
+    {
+        push_message(errors, 0, 0, 1, __FILE__, __FUNCTION__, __LINE__, "bad path - %s", path);
+        return;
+    }
+
+
+        const fundamental* fundfind = (fundamental*) bsearch(names[n],
+                                      fundamentals, fsize, sizeof(fundamental), compare_fundamentals);
+        if(!fundfind)
+        {
+            push_message(errors, 0, 0, 1, __FILE__, __FUNCTION__, __LINE__, "bad name - %s", names[n]);
+            continue;
+        }
+
+        const technical* techfind = (technical*) bsearch(names[n],
+                                    technicals, tsize, sizeof(technical), compare_technicals);
+        if(!techfind)
+        {
+            push_message(errors, 0, 0, 1, __FILE__, __FUNCTION__, __LINE__, "bad name - %s", names[n]);
+            continue;
+        }
+        write(fd, fundfind, sizeof(fundamental));
+        write(fd, techfind, sizeof(technical));
+
+fundamental* get_fundamental(const char* const path, int& size, node<message*>** errors)
+{
+    /*
+    Symbol  Name    Sector  Industry    PE  EPS DivYield    Shares  DPS PEG PtS PtB
+    AA.P    Alcoa Inc Pf 3.75   Capital Goods   Metal Fabrications  0   0   0   0   0   0   0   0
+    AADR    BNY Mellon Focused Growth ADR ETF           0   0   0.34    0   0.128   0   0   0
+    AAMC    Altisource Asset            0   -0.024  0   2351286 0   0   0   790.72
+    */
+
+    size_t len = 0;
+    ssize_t read;
+    char tmp[NAME_SIZE];
+
+    char* line = get_string_from_file(path, errors);
+    if(!line)
+        return;
+
+    fundamental* t = (fundamental*) malloc(sizeof(fundamental) * MAX_EXCHANGE_SYMBOLS);
+    fundamental* ft = t;
+
+    while(*line != '\r' && *(line + 1) != '\n')
+        ++line;
+    ++line;
+    ++line;
+
+    while(*line != '\0')
+    {
+        char* str = line;
+
+        while(*line != '\t') ++line;
+        strncpy(t->symbol, str, line - str);
+        ++line;
+
+        str = line;
+        while(*line != '\t') ++line;
+        strncpy(t->name, str, line - str);
+        ++line;
+
+        str = line;
+        while(*line != '\t') ++line;
+        strncpy(t->sector, str, line - str);
+        ++line;
+
+        str = line;
+        while(*line != '\t') ++line;
+        strncpy(t->industry, str, line - str);
+        ++line;
+
+        str = line;
+        while(*line != '\t') ++line;
+        strncpy(t->pe, str, line - str);
+        ++line;
+
+        str = line;
+        while(*line != '\t') ++line;
+        strncpy(t->eps, str, line - str);
+        ++line;
+
+        str = line;
+        while(*line != '\t') ++line;
+        strncpy(t->divyield, str, line - str);
+        ++line;
+
+        str = line;
+        while(*line != '\t') ++line;
+        strncpy(t->shares, str, line - str);
+        ++line;
+
+        str = line;
+        while(*line != '\t') ++line;
+        strncpy(t->dps, str, line - str);
+        ++line;
+
+        str = line;
+        while(*line != '\t') ++line;
+        strncpy(t->peg, str, line - str);
+        ++line;
+
+        str = line;
+        while(*line != '\t') ++line;
+        strncpy(t->pts, str, line - str);
+        ++line;
+
+        str = line;
+        while(*line != '\r') ++line;
+        strncpy(t->ptb, str, line - str);
+        ++line;
+        ++line;
+
+        t++;
+    }
+
+    size = t - ft;
+    return ft;
+}
+
+technical* get_technical(const char* const path, int& size, node<message*>** errors)
+{
+    /*
+    Symbol  Previous    Change  VolumeChange    WeekHigh    WeekLow WeekChange  AvgWeekChange   AvgWeekVolume   MonthHigh   MonthLow    MonthChange AvgMonthChange  AvgMonthVolume  YearHigh    YearLow YearChange  AvgYearChange   AvgYearVolume   MA5 MA20    MA50    MA100   MA200   RSI14   STO9    WPR14   MTM14   ROC14   PTC
+    AA.P    78.9    0   -2100   79.03   76.6    2.3 0   1233    79.03   74.94   3.96    0.198   1070    99.44   70.03   -11.1   -0.0275 1592    78  78  77  76  83  61.5446 81.4553 100 1.41    1.0182  0
+    AADR    37.54   0.14    1000    37.69   37.3    0.25    0   1750    38.01   36.95   0.47    0.0165  3638    38.99   31.25   4.47    0.0185  4987    37  37  37  36  35  60.1834 65.8736 100 0.39    1.0105  0
+    AAMC    1178    -26.77  -17900  1200.36 1125.01 -45.13  0   31150   1209    865.62  249.23  13.8    20038   0   0   0   0   0   1175    1023    909 0   0   80.0257 88.4276 84.1777 228.08  1.2471  0
+    */
+
+    size_t len = 0;
+    ssize_t read;
+    char tmp[NAME_SIZE];
+
+    char* line = get_string_from_file(path, errors);
+    if(!line)
+        return;
+
+    technical* t = (technical*) malloc(sizeof(technical) * MAX_EXCHANGE_SYMBOLS);
+    technical* ft = t;
+
+    while(*line != '\r' && *(line + 1) != '\n')
+        ++line;
+    ++line;
+    ++line;
+
+    while(*line != '\0')
+    {
+        char* str = line;
+        while(*line != '\t') ++line;
+        strncpy(t->symbol, str, line - str);
+        ++line;
+
+        str = line;
+        while(*line != '\t') ++line;
+        strncpy(t->previous, str, line - str);
+        ++line;
+
+        str = line;
+        while(*line != '\t') ++line;
+        strncpy(t->change, str, line - str);
+        ++line;
+
+        str = line;
+        while(*line != '\t') ++line;
+        strncpy(t->volumechange, str, line - str);
+        ++line;
+
+        str = line;
+        while(*line != '\t') ++line;
+        strncpy(t->weekhigh, str, line - str);
+        ++line;
+
+        str = line;
+        while(*line != '\t') ++line;
+        strncpy(t->weeklow, str, line - str);
+        ++line;
+
+        str = line;
+        while(*line != '\t') ++line;
+        strncpy(t->weekchange, str, line - str);
+        ++line;
+
+        str = line;
+        while(*line != '\t') ++line;
+        strncpy(t->avgweekchange, str, line - str);
+        ++line;
+
+        str = line;
+        while(*line != '\t') ++line;
+        strncpy(t->avgweekvolume, str, line - str);
+        ++line;
+
+        str = line;
+        while(*line != '\t') ++line;
+        strncpy(t->monthhigh, str, line - str);
+        ++line;
+
+        str = line;
+        while(*line != '\t') ++line;
+        strncpy(t->monthlow, str, line - str);
+        ++line;
+
+        str = line;
+        while(*line != '\t') ++line;
+        strncpy(t->monthchange, str, line - str);
+        ++line;
+
+        str = line;
+        while(*line != '\t') ++line;
+        strncpy(t->avgmonthchange, str, line - str);
+        ++line;
+
+        str = line;
+        while(*line != '\t') ++line;
+        strncpy(t->avgmonthvolume, str, line - str);
+        ++line;
+
+        str = line;
+        while(*line != '\t') ++line;
+        strncpy(t->yearhigh, str, line - str);
+        ++line;
+
+        str = line;
+        while(*line != '\t') ++line;
+        strncpy(t->yearlow, str, line - str);
+        ++line;
+
+        str = line;
+        while(*line != '\t') ++line;
+        strncpy(t->yearchange, str, line - str);
+        ++line;
+
+        str = line;
+        while(*line != '\t') ++line;
+        strncpy(t->avgyearchange, str, line - str);
+        ++line;
+
+        str = line;
+        while(*line != '\t') ++line;
+        strncpy(t->avgyearvolume, str, line - str);
+        ++line;
+
+        str = line;
+        while(*line != '\t') ++line;
+        strncpy(t->ma5, str, line - str);
+        ++line;
+
+        str = line;
+        while(*line != '\t') ++line;
+        strncpy(t->ma20, str, line - str);
+        ++line;
+
+        str = line;
+        while(*line != '\t') ++line;
+        strncpy(t->ma50, str, line - str);
+        ++line;
+
+        str = line;
+        while(*line != '\t') ++line;
+        strncpy(t->ma100, str, line - str);
+        ++line;
+
+        str = line;
+        while(*line != '\t') ++line;
+        strncpy(t->ma200, str, line - str);
+        ++line;
+
+        str = line;
+        while(*line != '\t') ++line;
+        strncpy(t->rsi14, str, line - str);
+        ++line;
+
+        str = line;
+        while(*line != '\t') ++line;
+        strncpy(t->sto9, str, line - str);
+        ++line;
+
+        str = line;
+        while(*line != '\t') ++line;
+        strncpy(t->wpr14, str, line - str);
+        ++line;
+
+        str = line;
+        while(*line != '\t') ++line;
+        strncpy(t->mtm14, str, line - str);
+        ++line;
+
+        str = line;
+        while(*line != '\t') ++line;
+        strncpy(t->roc14, str, line - str);
+        ++line;
+
+        str = line;
+        while(*line != '\r') ++line;
+        strncpy(t->ptc, str, line - str);
+        ++line;
+        ++line;
+
+        t++;
+    }
+
+    size = t - ft;
+    return ft;
+}
+
+*/
