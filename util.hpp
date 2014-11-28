@@ -171,112 +171,6 @@ enum class option_type
 
 enum
 {
-    IMAGE_LAYOUT,//0
-    IMAGE_HELP,//1
-    IMAGE_HAL,//2
-    IMAGE_IND,//3
-    IMAGE_SIZE
-};
-
-enum
-{
-    COLOR_LINE1,
-    COLOR_LINE2,
-    COLOR_LINE3,
-    COLOR_ZOESCROLLBACK,
-    COLOR_ZOENUBACK,
-    COLOR_BEKSCROLLBACK,
-    COLOR_BEKNUBACK,
-    COLOR_IMAGEBACK,
-    COLOR_AVATEXT,
-    COLOR_AVATEXTBK,
-    COLOR_SIZE
-};
-
-enum
-{
-    SUNDAY,
-    MONDAY,
-    TUESDAY,
-    WEDNESDAY,
-    THURSDAY,
-    FRIDAY,
-    SATURDAY
-};
-
-enum
-{
-    STATE_DEFAULT,
-    STATE_CURRENT,
-    STATE_SELECTED,
-    STATE_ENABLED,
-    STATE_SELECTEDCURRENT,
-    STATE_SELECTEDENABLED,
-    STATE_CURRENTENABLED,
-    STATE_SELECTEDCURRENTENABLED,
-    STATE_SIZE
-};
-
-enum
-{
-    FEEDTYPE_ROC,
-    FEEDTYPE_FI,
-    FEEDTYPE_DPO,
-    FEEDTYPE_AVG,
-    FEEDTYPE_DIFF,
-    FEEDTYPE_DIV,
-    FEEDTYPE_AVG3,
-    FEEDTYPE_TR,
-    FEEDTYPE_TL,
-    FEEDTYPE_RC,
-    FEEDTYPE_FC,
-    FEEDTYPE_AVG4,
-    FEEDTYPE_CLV,
-    FEEDTYPE_OBV,
-    FEEDTYPE_WMA,
-    FEEDTYPE_EMA,
-    FEEDTYPE_SMA,
-    FEEDTYPE_MIN,
-    FEEDTYPE_MAX,
-    FEEDTYPE_MULT,
-    FEEDTYPE_MULTC,
-    FEEDTYPE_SUB,
-    FEEDTYPE_SUBC,
-    FEEDTYPE_ADD,
-    FEEDTYPE_ADDC,
-    FEEDTYPE_RS,
-    FEEDTYPE_STDEV,
-    FEEDTYPE_CCI,
-    FEEDTYPE_ULTOSC,
-    FEEDTYPE_NDM,
-    FEEDTYPE_PDM,
-    FEEDTYPE_ACCDIST,
-    FEEDTYPE_CMF,
-    FEEDTYPE_BOL,
-    FEEDTYPE_BOLL_PER,
-    FEEDTYPE_STOCH,
-    FEEDTYPE_WILL_PER,
-    FEEDTYPE_PVT,
-    FEEDTYPE_STOCHRSI,
-    FEEDTYPE_MFR,
-    FEEDTYPE_PSYLINE,
-    FEEDTYPE_INDEX,
-    FEEDTYPE_DEFAULT,
-    FEEDTYPE_SIZE,
-};
-
-enum
-{
-    FEEDGROUP_1,
-    FEEDGROUP_2,
-    FEEDGROUP_3,
-    FEEDGROUP_4,
-    FEEDGROUP_5,
-    FEEDGROUP_6,
-};
-
-enum
-{
     FEED_YMD,
     FEED_OPEN,
     FEED_HIGH,
@@ -358,55 +252,50 @@ enum
 
 enum
 {
-    GRAPH_RSI14,
-    GRAPH_MA50CANDLE,
-    GRAPH_MACD12269,
-    GRAPH_HIGHAREA,
-    GRAPH_HIGHBARS,
-    GRAPH_VOLUMELINE,
-    GRAPH_MA1632OHLC2,
-    GRAPH_MA1632OHLC,
-    GRAPH_UNUSED,
-    GRAPH_MA1632HLC,
-    GRAPH_PPO16329,
-    GRAPH_ROC16,
-    GRAPH_WILLIAMS16,
-    GRAPH_OBV,
-    GRAPH_CMF,
-    GRAPH_MFI15,
-    GRAPH_FI,
-    GRAPH_TR,
-    GRAPH_BOLLINGER1616,
-    GRAPH_BOLPERC,
-    GRAPH_BOLLWIDTH,
-    GRAPH_STDEV,
-    GRAPH_ACCDIST,
-    GRAPH_PVO4,
-    GRAPH_CHAIKINOSCILL310,
-    GRAPH_STOCHRSI1,
-    GRAPH_FASTSTO,
-    GRAPH_SLOWSTO,
-    GRAPH_SMAENV,
-    GRAPH_KELTNERUP,
-    GRAPH_PRICECHAN16,
-    GRAPH_ATR,
-    GRAPH_CCI16,
-    GRAPH_ULTOSC,
-    GRAPH_DPO,
-    GRAPH_MA50CANDLE10,
-    GRAPH_SIZE
-};
-
-enum
-{
-    METASET_TINY,
-    METASET_SMALL,
-    METASET_MEDIUM,
-    METASET_MEDIUM_LARGE,
-    METASET_LARGE,
-    METASET_VER_LARGE,
-    METASET_HUGE,
-    METASET_SIZE
+    FEEDTYPE_ROC,
+    FEEDTYPE_FI,
+    FEEDTYPE_DPO,
+    FEEDTYPE_AVG,
+    FEEDTYPE_DIFF,
+    FEEDTYPE_DIV,
+    FEEDTYPE_AVG3,
+    FEEDTYPE_TR,
+    FEEDTYPE_TL,
+    FEEDTYPE_RC,
+    FEEDTYPE_FC,
+    FEEDTYPE_AVG4,
+    FEEDTYPE_CLV,
+    FEEDTYPE_OBV,
+    FEEDTYPE_WMA,
+    FEEDTYPE_EMA,
+    FEEDTYPE_SMA,
+    FEEDTYPE_MIN,
+    FEEDTYPE_MAX,
+    FEEDTYPE_MULT,
+    FEEDTYPE_MULTC,
+    FEEDTYPE_SUB,
+    FEEDTYPE_SUBC,
+    FEEDTYPE_ADD,
+    FEEDTYPE_ADDC,
+    FEEDTYPE_RS,
+    FEEDTYPE_STDEV,
+    FEEDTYPE_CCI,
+    FEEDTYPE_ULTOSC,
+    FEEDTYPE_NDM,
+    FEEDTYPE_PDM,
+    FEEDTYPE_ACCDIST,
+    FEEDTYPE_CMF,
+    FEEDTYPE_BOL,
+    FEEDTYPE_BOLL_PER,
+    FEEDTYPE_STOCH,
+    FEEDTYPE_WILL_PER,
+    FEEDTYPE_PVT,
+    FEEDTYPE_STOCHRSI,
+    FEEDTYPE_MFR,
+    FEEDTYPE_PSYLINE,
+    FEEDTYPE_INDEX,
+    FEEDTYPE_DEFAULT,
+    FEEDTYPE_SIZE,
 };
 
 struct point
@@ -415,60 +304,10 @@ struct point
     int y;
 };
 
-struct fundamental
-{
-    char symbol[NAME_SIZE];//0
-    char name[NAME_SIZE];//1
-    char sector[NAME_SIZE];//2
-    char industry[NAME_SIZE];//3
-    char pe[NAME_SIZE];//4
-    char eps[NAME_SIZE];//5
-    char divyield[NAME_SIZE];//6
-    char shares[NAME_SIZE];//7
-    char dps[NAME_SIZE];//8
-    char peg[NAME_SIZE];//9
-    char pts[NAME_SIZE];//10
-    char ptb[NAME_SIZE];//11
-};
-
 struct ind
 {
     char name[NAME_SIZE];
     char title[TITLE_SIZE];
-};
-
-struct technical
-{
-    char symbol[NAME_SIZE];//0
-    char previous[NAME_SIZE];//1
-    char change[NAME_SIZE];//2
-    char volumechange[NAME_SIZE];//3
-    char weekhigh[NAME_SIZE];//4
-    char weeklow[NAME_SIZE];//5
-    char weekchange[NAME_SIZE];//6
-    char avgweekchange[NAME_SIZE];//7
-    char avgweekvolume[NAME_SIZE];//8
-    char monthhigh[NAME_SIZE];//9
-    char monthlow[NAME_SIZE];//10
-    char monthchange[NAME_SIZE];//11
-    char avgmonthchange[NAME_SIZE];//12
-    char avgmonthvolume[NAME_SIZE];//13
-    char yearhigh[NAME_SIZE];//14
-    char yearlow[NAME_SIZE];//15
-    char yearchange[NAME_SIZE];//16
-    char avgyearchange[NAME_SIZE];//17
-    char avgyearvolume[NAME_SIZE];//18
-    char ma5[NAME_SIZE];//19
-    char ma20[NAME_SIZE];//20
-    char ma50[NAME_SIZE];//21
-    char ma100[NAME_SIZE];//22
-    char ma200[NAME_SIZE];//23
-    char rsi14[NAME_SIZE];//24
-    char sto9[NAME_SIZE];//25
-    char wpr14[NAME_SIZE];//26
-    char mtm14[NAME_SIZE];//27
-    char roc14[NAME_SIZE];//28
-    char ptc[NAME_SIZE];//29
 };
 
 struct color
@@ -512,11 +351,6 @@ struct image
     int bottom;
     unsigned char* data;
 };
-
-extern const image* EMAIMAGE;
-extern const image* FLOIMAGE;
-extern const image* ZOEIMAGE;
-extern const char*  EXCHANGE;
 
 struct imageptr
 {
@@ -569,8 +403,6 @@ struct font
     char path[MAX_PATH];
     int size;
 };
-
-typedef std::function < int (IplImage* ipl, void* user_data = 0) > panel_t;
 
 struct market
 {
@@ -2390,6 +2222,23 @@ inline void convertToUpperCase(char* str)
     {
         ch = toupper(str[i]);
         str[i] = ch;
+    }
+}
+
+inline void echo_csv(const char*, const char* path, void* app_, node<message*>** errors)
+{
+    /*
+        const char* line =
+        "AAC,20120426\r\n"
+        "BBB,20120425\r\n";
+    */
+    int linesn;
+    char** lines = load_file_lines(path, linesn);
+    for(int n = 0; n < linesn; ++n)
+    {
+        int tokensn;
+        char** tokens = tokenizer(lines[n], '\t', tokensn, PARSE_SKIPBLANKS | PARSE_SKIPCOMMENTS);
+        printf("%s,", tokens[0]);
     }
 }
 
