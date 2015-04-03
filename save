@@ -46,7 +46,7 @@ fundamental* get_fundamental(const char* const path, int& size, node<message*>**
 
     size_t len = 0;
     ssize_t read;
-    char tmp[NAME_SIZE];
+    char tmp[loki.NAMESIZE];
 
     char* line = get_string_from_file(path, errors);
     if(!line)
@@ -142,7 +142,7 @@ technical* get_technical(const char* const path, int& size, node<message*>** err
 
     size_t len = 0;
     ssize_t read;
-    char tmp[NAME_SIZE];
+    char tmp[loki.NAMESIZE];
 
     char* line = get_string_from_file(path, errors);
     if(!line)

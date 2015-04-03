@@ -127,8 +127,9 @@ inline IppStatus sd_32f(const float* src, float* dest, int size, int days)
 
 struct default_feed
 {
-    IppStatus operator()(float*, int size)
+    IppStatus operator()(float* a, int size)
     {
+//echo()(a,size);
         return ippStsNoErr;
     }
 };
@@ -194,7 +195,9 @@ struct diff_feed
     float d;
     IppStatus operator()(float* dest, int size)
     {
-        return ippsSub_32f(b + (int)c, a + (int)d, dest, size); // a - b = dest
+        IppStatus status = ippsSub_32f(b + (int)c, a + (int)d, dest, size); // a - b = dest
+//echo()(a,b,dest,size);
+        return status;
     }
 };
 
@@ -316,6 +319,7 @@ struct roc_feed
         {
         }
 
+//echo()(a,b,dest,size);
         return status;
     }
 };
@@ -686,50 +690,6 @@ struct dpo_feed
     }
 };
 
-inline void rs32f_test(const char*, const char*, void*, node<message*>** errors)
-{
-    int status;
-    float data[] = {43.13, 42.66, 43.42, 44.57, 44.22, 44.18, 44.03, 45.35, 45.78, 46.45, 45.71, 46.25,
-                    46.21, 45.64, 46.22, 46.41, 46.03, 46.00, 46.28, 46.28, 45.61, 46.03, 45.89, 46.08,
-                    45.84, 45.42, 45.10, 44.83, 44.33, 43.61, 44.15, 44.09, 44.34
-                   };
-
-    float rs [] = {0.60701822435637, 0.49431092655862, 0.594999156777, 0.8336246868167,
-                   0.72025005002827, 0.70824775083558, 0.66638402420065, 1.01705518638599, 1.20787462282414,
-                   1.6579536425235, 1.27579435639859, 1.72161776689015, 1.69757052044223, 1.3795, 1.9722,
-                   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-                  };
-
-    unsigned long size = sizeof(data) / sizeof(float);
-    float result[30] = {0};
-    rs_32f(data, result, size, 14);
-
-    echo()(data, rs, result, size);
-}
-
-inline void ema32f_test(const char*, const char*, void*, node<message*>** errors)
-{
-    int status = ippStsNoErr;
-    float data[] = {22.17, 22.40, 23.10, 22.68, 23.33, 23.10, 23.19, 23.65, 23.87, 23.82, 23.63,
-                    23.95, 23.83, 23.75, 24.05, 23.36, 22.61, 22.38, 22.39, 22.15, 22.29, 22.24, 22.43, 22.23,
-                    22.13, 22.18, 22.17, 22.08, 22.19, 22.27
-                   };
-
-    float expected [] = {22.9155602300309, 23.0806847255934, 23.2313924423919, 23.2611240962568,
-                         23.3901516732027, 23.4044076005811, 23.4725870673769, 23.5360508601273, 23.5099066068223,
-                         23.4293969638939, 23.3420407336481, 23.2772053411254, 23.1273398613755, 22.9706598305701,
-                         22.7968064595856, 22.517896783938, 22.3316960692576, 22.2696507513148, 22.2447731404959,
-                         22.2119227272727, 22.22475, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-                        };
-
-    static unsigned long size = 30;
-    float result[30] = {0};
-    ippsSet_32f(std::numeric_limits<float>::quiet_NaN(), result, size);
-    ema_32f(data, result, size, 10);
-
-    echo()(data, expected, result, size);
-}
-
 struct bollpercentage_feed
 {
     const float* close;
@@ -984,20 +944,4 @@ typedef pod<psyline_feed> psyline_feed_t;
 typedef pod<index_feed> index_feed_t;
 typedef pod<default_feed> default_feed_t;
 
-struct feedpack
-{
-    short id;
-    short key;
-    char name[LABEL_SIZE];
-    char stitle[LABEL_SIZE];
-    char title[LABEL_SIZE];
-    char ltitle[LABEL_SIZE];
-    short format;
-    char describe[TEXT_BUFFER];
-    short deps[4];
-    short depsn;
-    float parms[4];
-    short parmsn;
-    bool show;
-};
 
