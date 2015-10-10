@@ -1,5 +1,66 @@
 #include </opt/intel/ipp/include/ipp.h>
 
+enum
+{
+    FEED_YMD,
+    FEED_OPEN,
+    FEED_HIGH,
+    FEED_LOW,
+    FEED_CLOSE,
+    FEED_VOLUME,
+    FEED_CHANGE,
+    FEED_ROC,
+    FEED_SIZE,
+};
+
+enum
+{
+    FEEDTYPE_ROC,
+    FEEDTYPE_FI,
+    FEEDTYPE_DPO,
+    FEEDTYPE_AVG,
+    FEEDTYPE_DIFF,
+    FEEDTYPE_DIV,
+    FEEDTYPE_AVG3,
+    FEEDTYPE_TR,
+    FEEDTYPE_TL,
+    FEEDTYPE_RC,
+    FEEDTYPE_FC,
+    FEEDTYPE_AVG4,
+    FEEDTYPE_CLV,
+    FEEDTYPE_OBV,
+    FEEDTYPE_WMA,
+    FEEDTYPE_EMA,
+    FEEDTYPE_SMA,
+    FEEDTYPE_MIN,
+    FEEDTYPE_MAX,
+    FEEDTYPE_MULT,
+    FEEDTYPE_MULTC,
+    FEEDTYPE_SUB,
+    FEEDTYPE_SUBC,
+    FEEDTYPE_ADD,
+    FEEDTYPE_ADDC,
+    FEEDTYPE_RS,
+    FEEDTYPE_STDEV,
+    FEEDTYPE_CCI,
+    FEEDTYPE_ULTOSC,
+    FEEDTYPE_NDM,
+    FEEDTYPE_PDM,
+    FEEDTYPE_ACCDIST,
+    FEEDTYPE_CMF,
+    FEEDTYPE_BOL,
+    FEEDTYPE_BOLL_PER,
+    FEEDTYPE_STOCH,
+    FEEDTYPE_WILL_PER,
+    FEEDTYPE_PVT,
+    FEEDTYPE_STOCHRSI,
+    FEEDTYPE_MFR,
+    FEEDTYPE_PSYLINE,
+    FEEDTYPE_INDEX,
+    FEEDTYPE_DEFAULT,
+    FEEDTYPE_SIZE,
+};
+
 inline IppStatus wma_32f(const float* src, float* dest, int size, int factor)
 {
     if(!factor || !size)
@@ -129,7 +190,7 @@ struct default_feed
 {
     IppStatus operator()(float* a, int size)
     {
-//echo()(a,size);
+		//echo()(a,size);
         return ippStsNoErr;
     }
 };
@@ -195,8 +256,8 @@ struct diff_feed
     float d;
     IppStatus operator()(float* dest, int size)
     {
-        IppStatus status = ippsSub_32f(b + (int)c, a + (int)d, dest, size); // a - b = dest
-//echo()(a,b,dest,size);
+        IppStatus status = ippsSub_32f(b+(int)c, a+(int)d, dest, size); // a - b = dest
+//		echo()(b+(int)c,a+(int)d,dest,size);
         return status;
     }
 };
@@ -944,4 +1005,98 @@ typedef pod<psyline_feed> psyline_feed_t;
 typedef pod<index_feed> index_feed_t;
 typedef pod<default_feed> default_feed_t;
 
+struct feedpack
+{
+    short id;
+    short key;
+    char name[LABEL_SIZE];
+    char stitle[LABEL_SIZE];
+    char title[LABEL_SIZE];
+    char ltitle[LABEL_SIZE];
+    char describe[TEXT_BUFFER];
+    short deps[4];
+    short depsn;
+    float parms[4];
+    short parmsn;
+};
 
+inline void write_symbol_data(feedpack* feeds, float* data, node<message*>** errors)
+{
+    node<char*>* messages = 0;
+	float* hdata = data;
+
+    for(int n = 0; n < FEED_SIZE; ++n, ++feeds, data += HISTORY_SIZE)
+    {
+        const float* a = hdata + (feeds->deps[0] * HISTORY_SIZE);
+        const float* b = hdata + (feeds->deps[1] * HISTORY_SIZE);
+        const float* c = hdata + (feeds->deps[2] * HISTORY_SIZE);
+        const float* d = hdata + (feeds->deps[3] * HISTORY_SIZE);
+
+        int asize = HISTORY_SIZE;
+        if(feeds->depsn >= 1)
+            asize = get_safe_size(a, asize);
+        if(feeds->depsn >= 2)
+            asize = get_safe_size(b, asize);
+        if(feeds->depsn >= 3)
+            asize = get_safe_size(c, asize);
+        if(feeds->depsn >= 4)
+            asize = get_safe_size(d, asize);
+
+        typedef std::function < IppStatus(float*, int) > func_t;
+        func_t func_lst[] =
+        {
+            roc_feed_t()(a, b, feeds->parms[0]), //FEEDTYPE_ROC
+            fi_index_t()(a, b), //FEEDTYPE_FI
+            dpo_feed_t()(a, b, feeds->parms[0]), //FEEDTYPE_DPO
+            avg_feed_t()(a, b),   //FEEDTYPE_AVG
+            diff_feed_t()(a, b, feeds->parms[0], feeds->parms[1]), //FEEDTYPE_DIFF
+            div_feed_t()(a, b), //FEEDTYPE_DIV
+            avg3_feed_t()(a, b, c), //FEEDTYPE_AVG3
+            tr_feed_t()(a, b, c), //FEEDTYPE_TR
+            true_low_feed_t()(a, b), //FEEDTYPE_TL
+            default_feed_t()(), //FEEDTYPE_RC
+            default_feed_t()(), //FEEDTYPE_FC
+            avg4_feed_t()(a, b, c, d), //FEEDTYPE_AVG4
+            clv_feed_t()(a, b, c), //FEEDTYPE_CLV
+            obv_feed_t()(a, b), //FEEDTYPE_OBV
+            wma_feed_t()(a, feeds->parms[0]), //FEEDTYPE_WMA
+            ema_feed_t()(a, feeds->parms[0]), //FEEDTYPE_EMA
+            sma_feed_t()(a, feeds->parms[0]), //FEEDTYPE_SMA
+            min_feed_t()(a, feeds->parms[0]), //FEEDTYPE_MIN
+            max_feed_t()(a, feeds->parms[0]), //FEEDTYPE_MAX
+            mult_feed_t()(a, b), //FEEDTYPE_MULT
+            multc_feed_t()(a, feeds->parms[0]), //FEEDTYPE_MULTC
+            sub_feed_t()(a, b), //FEEDTYPE_SUB
+            subc_feed_t()(a, feeds->parms[0]), //FEEDTYPE_SUBC
+            add_feed_t()(a, b), //FEEDTYPE_ADD
+            addc_feed_t()(a, feeds->parms[0]), //FEEDTYPE_ADDC
+            rs_feed_t()(a, feeds->parms[0]), //FEEDTYPE_RS
+            stdev_feed_t()(a, feeds->parms[0]), //FEEDTYPE_STDEV
+            cci_feed_t()(a, b, feeds->parms[0], (int) feeds->parms[1]), //FEEDTYPE_CCI
+            ultoscc_feed_t()(a, b, feeds->parms[0], feeds->parms[1], feeds->parms[2]), //FEEDTYPE_ULTOSC
+            ndm_feed_t()(a, b), //FEEDTYPE_NDM
+            pdm_feed_t()(a, b), //FEEDTYPE_PDM
+            accdist_feed_t()(a, b), //FEEDTYPE_ACCDIST
+            cmf_feed_t()(a, b, feeds->parms[0]), //FEEDTYPE_CMF
+            bollinger_feed_t()(a, b, feeds->parms[0]), //FEEDTYPE_BOL
+            bollpercentage_feed_t()(a, b, c), //FEEDTYPE_BOLL_PER
+            stochastic_feed_t()(a, b, c), //FEEDTYPE_STOCH
+            williams_feed_t()(a, b, c), //FEEDTYPE_WILL_PER
+            pvt_feed_t()(a, b), //FEEDTYPE_PVT
+            stochrsi_feed_t()(a, feeds->parms[0]), //FEEDTYPE_STOCHRSI
+            mfr_feed_t()(a, b, feeds->parms[0]), //FEEDTYPE_MFR
+            psyline_feed_t()(a, feeds->parms[0]), //FEEDTYPE_PSYLINE
+            index_feed_t()(a), //FEEDTYPE_INDEX
+            default_feed_t()() //FEEDTYPE_DEFAULT,
+        };
+
+        int msize = sizeof(func_lst) / sizeof(func_t);
+        IppStatus status = func_lst[feeds->key](data, asize);
+        if(status != ippStsDivByZero && status != ippStsNoErr)
+        {
+            push_message(errors, 0, 0, 1, __FILE__, __FUNCTION__, __LINE__,
+                         "n=%d: name=%s title=%s key=%d error=%s ", n, feeds->name,
+                         feeds->title, feeds->key, ippGetStatusString(status));
+        }
+    }
+}
